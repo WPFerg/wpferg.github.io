@@ -1,0 +1,48 @@
+<html>
+<head>
+  <style>
+    @import "index.css";
+    @import "d3fc.min.css";
+  </style>
+</head>
+  <body>
+    <svg id="low-barrel">
+      <g layout-style="flex: 0.65; flexDirection: row">
+        <svg class="main" layout-style="flex: 1"></svg>
+        <g layout-style="width: 20; justifyContent: center">
+          <g layout-style="height: 0">
+            <text text-anchor="middle" transform="rotate(90)">Temperature</text>
+          </g>
+        </g>
+      </g>
+      <g layout-style="flex: 0.15; flexDirection: row">
+        <svg class="navigator" layout-style="flex: 1"></svg>
+        <text layout-style="width: 20"></text>
+      </g>
+    </svg>
+    <div class="controls">
+      <div class="animations control">
+        <input type="checkbox" checked id="animation-checkbox">
+        <label for="animation-checkbox">Animations</label>
+      </div>
+      <div class="algorithms control">
+        <div>Sampling Algorithm:</div>
+        <div>
+        <input type="radio" checked id="no-algorithm" name="algorithm">
+        <label for="no-algorithm">
+          No Algorithm 
+          <span title="This is likely to cause your device to slow down.">(!)</span>
+        </label>
+        <input type="radio" checked id="one-bucket" name="algorithm">
+        <label for="one-bucket">Triangle 1</label>
+        <input type="radio" checked id="three-bucket" name="algorithm">
+        <label for="three-bucket">Triangle 3</label>
+        <input type="radio" id="mode-median" name="algorithm">
+        <label for="mode-median">Mode Median</label>
+        </div>
+      </div>
+    </div>
+  <script src="d3fc.bundle.min.js"></script>
+  <script src="index.js"></script>
+  </body>
+</html>
