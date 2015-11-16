@@ -5,7 +5,8 @@ var example = {};
 example.sampler = fc.data.sampler.largestTriangleThreeBucket()
     .x(function(d) { return d.date; })
     .y(function(d) { return d.temperature; });
-example.numberOfBuckets = 768;
+example.defaultBucketSize = document.body.clientWidth - 30;
+example.numberOfBuckets = example.defaultBucketSize;
 
 example.tooltip = function() {
 
@@ -393,7 +394,7 @@ d3.csv('data.csv', function(err, data) {
         example.sampler = fc.data.sampler.largestTriangleThreeBucket()
             .x(function(d) { return d.date; })
             .y(function(d) { return d.temperature; });
-        example.numberOfBuckets = 768;
+        example.numberOfBuckets = example.defaultBucketSize;
         render();
     });
 
@@ -401,14 +402,14 @@ d3.csv('data.csv', function(err, data) {
         example.sampler = fc.data.sampler.largestTriangleOneBucket()
             .x(function(d) { return d.date; })
             .y(function(d) { return d.temperature; });
-        example.numberOfBuckets = 768;
+        example.numberOfBuckets = example.defaultBucketSize;
         render();
     });
 
     d3.select('#mode-median').on('click', function() {
         example.sampler = fc.data.sampler.modeMedian()
             .value(function(d) { return d.temperature; });
-        example.numberOfBuckets = 768;
+        example.numberOfBuckets = example.defaultBucketSize;
         render();
     });
 });
