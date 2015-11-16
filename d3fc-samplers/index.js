@@ -3,8 +3,8 @@
 var example = {};
 
 example.sampler = fc.data.sampler.largestTriangleThreeBucket()
-    .xValue(function(d) { return d.date; })
-    .yValue(function(d) { return d.temperature; });
+    .x(function(d) { return d.date; })
+    .y(function(d) { return d.temperature; });
 example.numberOfBuckets = 768;
 
 example.tooltip = function() {
@@ -296,8 +296,8 @@ d3.csv('data.csv', function(err, data) {
 
     var staticDataSampler = fc.data.sampler.largestTriangleThreeBucket()
         .bucketSize(300)
-        .xValue(function(d) { return d.date; })
-        .yValue(function(d) { return d.temperature; });
+        .x(function(d) { return d.date; })
+        .y(function(d) { return d.temperature; });
 
     data.navigatorData = staticDataSampler(data);
     data.navigatorData.shared = data.shared;
@@ -391,16 +391,16 @@ d3.csv('data.csv', function(err, data) {
 
     d3.select('#three-bucket').on('click', function() {
         example.sampler = fc.data.sampler.largestTriangleThreeBucket()
-            .xValue(function(d) { return d.date; })
-            .yValue(function(d) { return d.temperature; });
+            .x(function(d) { return d.date; })
+            .y(function(d) { return d.temperature; });
         example.numberOfBuckets = 768;
         render();
     });
 
     d3.select('#one-bucket').on('click', function() {
         example.sampler = fc.data.sampler.largestTriangleOneBucket()
-            .xValue(function(d) { return d.date; })
-            .yValue(function(d) { return d.temperature; });
+            .x(function(d) { return d.date; })
+            .y(function(d) { return d.temperature; });
         example.numberOfBuckets = 768;
         render();
     });
