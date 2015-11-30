@@ -91,7 +91,7 @@
             text-align: right;
         }
 
-        footer a, footer a:visited {
+        a, a:visited {
             color: inherit;
         }
     </style>
@@ -99,7 +99,7 @@
 <body>
     <div class="container">
         <h1>Drag 'n' drop mp3s here.</h1>
-        <h3>State: <span id="state">nothing</span></h3>
+        <h3>State: <span id="state">nothing</span> <a href="#" id="microphone">(Microphone)</a></h3>
         <div id="progress-container">
             <div id="progress-duration"></div>
             <div id="progress"></div>
@@ -136,15 +136,37 @@
         var drop = function (event) {
             event.stopPropagation();
             event.preventDefault();
+            disconnectSource();
+            analyser.connect(ctx.destination);
 
             var files = event.dataTransfer.files;
-
-            if (source) {
-                source.stop(0);
-                source = null;
-            }
             gotFiles(files);
         };
+
+        var microphoneRequest = function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            navigator.getUserMedia({audio: true}, function(stream) {
+                reset();
+                document.getElementById("file").innerHTML = "";
+                source = ctx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                document.getElementById("microphone").style.display = "none";
+                analyser.disconnect();
+                microphoneVisWrapper();
+            }, function() {
+                document.getElementById("state").innerHTML = "microphone rejected";
+            });
+        };
+
+        function microphoneVisWrapper() {
+            document.getElementById("state").innerHTML = "using microphone";
+            vis();
+            if (source) {
+                requestAnimationFrame(microphoneVisWrapper);
+            }
+        }
 
         // Convert file list to array (can use array funcs)
         function gotFiles(files) {
@@ -157,6 +179,15 @@
             play(firstFile);
         }
 
+        function disconnectSource() {
+            if (source) {
+                if (source.stop) {
+                    source.stop(0);
+                }
+                source.disconnect();
+                source = null;
+            }
+        }
         // Play the file.
         function play(file) {
             // Reset the song-dependent variables
@@ -285,6 +316,13 @@
         }
 
         function reset() {
+            resetSongVars();
+            disconnectSource();
+            document.getElementById("microphone").style.display = "inline";
+            analyser.connect(ctx.destination);
+        }
+
+        function resetSongVars() {
             currentMaxBrightness = 200;
             _visHistory = [];
             startTime = -1;
@@ -328,6 +366,7 @@
         body.addEventListener('dragenter', dragover);
         body.addEventListener('dragover', dragover);
         body.addEventListener('drop', drop);
+        document.getElementById("microphone").addEventListener('click', microphoneRequest);
     })();
 </script>
 </body>
