@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Music Visualisation Experiment</title>
+    <style>
+        @import url(//fonts.googleapis.com/css?family=Roboto:400,700);
+
+        html {
+            height:100%;
+        }
+
+        body {
+            min-height: 100%;
+            text-align: center;
+            margin: 0;
+            background-color: skyblue;
+            overflow: hidden;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 400;
+        }
+
+        .dark {
+            color: white;
+        }
+
+        #progress-container {
+            display: none;
+            width: 100%;
+            height: 1.5em;
+            border: 1px solid black;
+            text-align: right;
+            position: relative;
+        }
+
+        .dark #progress-container {
+            border-color: white;
+        }
+
+        #progress {
+            width:0;
+            background-color: hotpink;
+            text-align: right;
+            color: white;
+            display: inline-block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            height: 1em;
+            padding: 0.25em;
+        }
+
+        #progress-duration {
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 1em;
+            padding: 0.25em;
+        }
+
+        #waveform-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50%;
+        }
+
+        #waveform-container > canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .container {
+            height: 100%;
+        }
+
+        .container h1, .container h3 {
+            margin: 0;
+            padding: 0.5em 0;
+            font-weight: 400;
+        }
+
+        footer {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 150px;
+            font-size: 0.7em;
+            text-align: right;
+        }
+
+        a, a:visited {
+            color: inherit;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Drag 'n' drop mp3s here.</h1>
+        <h3>State: <span id="state">nothing</span> <a href="#" id="microphone">(Microphone)</a></h3>
+        <div id="progress-container">
+            <div id="progress-duration"></div>
+            <div id="progress"></div>
+        </div>
+        <p id="file"></p>
+        <div id="waveform-container">
+            <canvas id="waveform"></canvas>
+        </div>
+    </div>
+    <footer>
+        An experiment by <a href="http://github.com/wpferg/">WPFerg</a>.
+    </footer>
+<script>
+    // Sorry, it's messy, but whatever.
+    (function() {
+        var fftSize = 2048;
+
+        var body = document.body;
+        var ctx = new AudioContext();
+        var source;
+        var duration;
+        var startTime;
+        var droppedFiles = [];
+        var analyser = ctx.createAnalyser();
+        analyser.connect(ctx.destination);
+        analyser.smoothingTimeConstant = 0.3;
+
+        // Event listeners
+        var dragover = function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            document.getElementById("state").innerHTML = "dragging";
+        };
+
+        var drop = function (event) {
+            event.stopPropagation();
+            event.preventDefault();
+            disconnectSource();
+            analyser.connect(ctx.destination);
+
+            var files = event.dataTransfer.files;
+            gotFiles(files);
+        };
+
+        var microphoneRequest = function(event) {
+            event.stopPropagation();
+            event.preventDefault();
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            navigator.getUserMedia({audio: true}, function(stream) {
+                reset();
+                document.getElementById("file").innerHTML = "";
+                source = ctx.createMediaStreamSource(stream);
+                source.connect(analyser);
+                document.getElementById("microphone").style.display = "none";
+                analyser.disconnect();
+                microphoneVisWrapper();
+            }, function() {
+                document.getElementById("state").innerHTML = "microphone rejected";
+            });
+        };
+
+        function microphoneVisWrapper() {
+            document.getElementById("state").innerHTML = "using microphone";
+            vis();
+            if (source) {
+                requestAnimationFrame(microphoneVisWrapper);
+            }
+        }
+
+        // Convert file list to array (can use array funcs)
+        function gotFiles(files) {
+            var fileArr = [];
+            for (var i = 0; i < files.length; i++) {
+                fileArr.push(files[i]);
+            }
+            droppedFiles = fileArr;
+            var firstFile = droppedFiles.splice(0, 1)[0];
+            play(firstFile);
+        }
+
+        function disconnectSource() {
+            if (source) {
+                if (source.stop) {
+                    source.stop(0);
+                }
+                source.disconnect();
+                source = null;
+            }
+        }
+        // Play the file.
+        function play(file) {
+            // Reset the song-dependent variables
+            reset();
+            var fr = new FileReader();
+
+            fr.readAsArrayBuffer(file);
+            document.getElementById("state").innerHTML = "loading file";
+
+            var fileMessage = file.name;
+            if (droppedFiles.length > 0) {
+                fileMessage += " (Up next: " + droppedFiles[0].name + ")";
+            }
+            document.getElementById("file").innerHTML = fileMessage;
+
+            // File loaded, parse audio data.
+            fr.onloadend = (function () {
+                var buf = fr.result;
+
+                document.getElementById("state").innerHTML = "decoding";
+                ctx.decodeAudioData(buf, function (data) {
+
+                    duration = data.duration;
+
+                    if (source) {
+                        source.disconnect();
+                    }
+
+                    // Set up the player
+                    source = ctx.createBufferSource();
+                    source.buffer = data;
+                    source.connect(analyser);
+                    source.start(0);
+                    startTime = performance.now();
+
+                    document.getElementById("state").innerHTML = "playing";
+                    document.getElementById("progress-container").style.display = "block";
+
+                    requestAnimationFrame(updateView);
+
+                });
+            });
+        }
+
+        // Updates the progress bar and calls the visualiser funcs
+        function updateView() {
+            var progress = (performance.now() - startTime) / 1000;
+            if (source && progress < duration) {
+                document.getElementById("progress").style.width = (100 * progress / duration) + "%";
+                document.getElementById("progress").innerHTML = formatTime(progress);
+                document.getElementById("progress-duration").innerHTML = formatTime(duration);
+                requestAnimationFrame(updateView);
+                vis();
+            } else {
+                document.getElementById("state").innerHTML = "done";
+                document.getElementById("progress-container").style.display = "none";
+                document.getElementById("progress").style.width = 0;
+                document.body.style.backgroundColor = "";
+                playNext();
+            }
+        }
+
+        var _visHistory;
+        var currentMaxBrightness;
+
+        // Do some calcs and set the background colour
+        function vis() {
+            var uintArray = new Uint8Array(512);
+            analyser.getByteFrequencyData(uintArray);
+
+            var sum = uintArray.reduce(function(s, d) {
+                return s + d;
+            }, 0) / uintArray.length / 2;
+
+            var hue = Math.round(uintArray.reduce(function(accumulator, value, index) {
+                return accumulator + value / uintArray.length; 
+            }, 270));
+
+            var sl = Math.round(sum) + "%";
+            var normalisedColours = [hue, sl, sl];
+
+            var bgcol = "hsl(" + normalisedColours.slice(0, 3).join(",") + ")";
+            var useWhite = sum < 126;
+
+            document.body.style.backgroundColor = bgcol;
+            if (useWhite) {
+                document.body.classList.add("dark");
+            } else {
+                document.body.classList.remove("dark");
+            }
+
+            // Visualise the waveform;
+            waveformVis(uintArray, sum < 100);
+        }
+
+        function formatTime(seconds) {
+            var min = Math.floor(seconds / 60);
+            var sec = (seconds % 60).toFixed(3);
+            if (sec < 10) {
+                sec = "0" + sec;
+            }
+            return min + ":" + sec;
+        }
+
+        function reset() {
+            resetSongVars();
+            disconnectSource();
+            document.getElementById("microphone").style.display = "inline";
+            analyser.connect(ctx.destination);
+        }
+
+        function resetSongVars() {
+            currentMaxBrightness = 200;
+            _visHistory = [];
+            startTime = -1;
+            duration = -1;
+        }
+
+        function playNext() {
+            var nextFile = droppedFiles.splice(0, 1);
+            if (nextFile.length > 0) {
+                play(nextFile[0]);
+            }
+        }
+
+        var canvasCtx = document.getElementById("waveform").getContext("2d");
+
+        // Render the waveform
+        function waveformVis(waveform, dark) {
+            var canvas = document.getElementById("waveform");
+            var width = canvas.clientWidth;
+            var height = canvas.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            var widthPerWaveform = width / waveform.length;
+            canvasCtx.strokeStyle = dark ? "white" : "black";
+            canvasCtx.lineWidth = 2;
+
+            canvasCtx.clearRect(0, 0, width, height);
+            canvasCtx.beginPath();
+            for (var i = 0; i < waveform.length; i++) {
+                var waveformNormalised = 1 - waveform[i] / 256;
+                var waveformHeight = height * (waveformNormalised);
+                canvasCtx.lineTo(i * widthPerWaveform, waveformHeight);
+            }
+            canvasCtx.stroke();
+
+        }
+
+        reset();
+        body.addEventListener('dragenter', dragover);
+        body.addEventListener('dragover', dragover);
+        body.addEventListener('drop', drop);
+        document.getElementById("microphone").addEventListener('click', microphoneRequest);
+    })();
+</script>
+</body>
+</html>
